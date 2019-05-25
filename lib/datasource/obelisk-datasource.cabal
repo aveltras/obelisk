@@ -1,0 +1,19 @@
+name: obelisk-datasource
+version: 0.2
+cabal-version: >= 1.2
+build-type: Simple
+
+library
+  hs-source-dirs: src
+  build-depends: base,
+                 aeson,
+                 aeson-gadt-th,
+                 bytestring,
+                 constraints-extras,
+                 obelisk-route,
+                 reflex,
+                 reflex-dom-core,
+                 transformers,
+                 text
+  exposed-modules: Obelisk.DataSource
+  ghc-options: -Wall -fwarn-redundant-constraints

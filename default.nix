@@ -47,6 +47,12 @@ let
           rev = "6a71119bfa5db2b9990a2491c941469ff8ef5d13";
           sha256 = "0z8smyainnlzcglv3dlx6x1n9j6d2jv48aa8f2421iayfkxg3js5";
         } + /template) {};
+        aeson-gadt-th = self.callCabal2nix "aeson-gadt-th" (pkgs.fetchFromGitHub {
+          owner = "obsidiansystems";
+          repo = "aeson-gadt-th";
+          rev = "4876c5d1a5fd280a48763b245a8f604ce8777576";
+          sha256 = "12mww6i7k6vbsjpfaxpav50zysbhbd6hsxg4q9yjls2m46fxs463";
+        }) {};
       })
 
       pkgs.obeliskExecutableConfig.haskellOverlay
@@ -62,6 +68,7 @@ let
         obelisk-backend = self.callCabal2nix "obelisk-backend" (cleanSource ./lib/backend) {};
         obelisk-cliapp = self.callCabal2nix "obelisk-cliapp" (cleanSource ./lib/cliapp) {};
         obelisk-command = self.callCabal2nix "obelisk-command" (cleanSource ./lib/command) {};
+        obelisk-datasource = self.callCabal2nix "obelisk-datasource" (cleanSource ./lib/datasource) {};
         obelisk-frontend = self.callCabal2nix "obelisk-frontend" (cleanSource ./lib/frontend) {};
         obelisk-run = self.callCabal2nix "obelisk-run" (cleanSource ./lib/run) {};
         obelisk-route = self.callCabal2nix "obelisk-route" (cleanSource ./lib/route) {};

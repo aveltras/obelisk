@@ -8,6 +8,7 @@ let
   cacheBuildSystems = [ "x86_64-linux" "x86_64-darwin" ];
 
   obeliskPackagesCommon = [
+    "obelisk-datasource"
     "obelisk-frontend"
     "obelisk-route"
     "obelisk-executable-config-lookup"
@@ -19,6 +20,7 @@ let
     "obelisk-backend"
     "obelisk-cliapp"
     "obelisk-command"
+    "obelisk-datasource"
     "obelisk-executable-config-inject"
     "obelisk-frontend"
     "obelisk-run"
