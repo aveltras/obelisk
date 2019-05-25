@@ -33,6 +33,12 @@ let
       (self: super: let
         pkgs = self.callPackage ({ pkgs }: pkgs) {};
       in {
+        aeson-gadt-th = self.callCabal2nix "aeson-gadt-th" (pkgs.fetchFromGitHub {
+          owner = "obsidiansystems";
+          repo = "aeson-gadt-th";
+          rev = "4876c5d1a5fd280a48763b245a8f604ce8777576";
+          sha256 = "12mww6i7k6vbsjpfaxpav50zysbhbd6hsxg4q9yjls2m46fxs463";
+        }) {};
         hnix = pkgs.haskell.lib.dontCheck (self.callCabal2nix "hnix" (pkgs.fetchFromGitHub {
           owner = "haskell-nix";
           repo = "hnix";
@@ -47,12 +53,6 @@ let
           rev = "6a71119bfa5db2b9990a2491c941469ff8ef5d13";
           sha256 = "0z8smyainnlzcglv3dlx6x1n9j6d2jv48aa8f2421iayfkxg3js5";
         } + /template) {};
-        aeson-gadt-th = self.callCabal2nix "aeson-gadt-th" (pkgs.fetchFromGitHub {
-          owner = "obsidiansystems";
-          repo = "aeson-gadt-th";
-          rev = "4876c5d1a5fd280a48763b245a8f604ce8777576";
-          sha256 = "12mww6i7k6vbsjpfaxpav50zysbhbd6hsxg4q9yjls2m46fxs463";
-        }) {};
       })
 
       pkgs.obeliskExecutableConfig.haskellOverlay

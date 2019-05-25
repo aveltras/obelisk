@@ -48,6 +48,7 @@ import Obelisk.Frontend.Cookie
 import Obelisk.Route.Frontend
 import Reflex.Dom.Core
 import Reflex.Host.Class
+import Obelisk.DataSource
 import Obelisk.ExecutableConfig.Frontend
 import Obelisk.ExecutableConfig.Inject (injectExecutableConfigs)
 import Obelisk.ExecutableConfig.Lookup (getConfigs)
@@ -55,7 +56,7 @@ import Web.Cookie
 
 makePrisms ''Sum
 
-type ObeliskWidget js t route m =
+type ObeliskWidget js t route datasource m =
   ( DomBuilder t m
   , MonadFix m
   , MonadHold t m
@@ -76,6 +77,7 @@ type ObeliskWidget js t route m =
   , PrebuildAgnostic t route (Client m)
   , HasFrontendConfigs m
   , HasCookies m
+  , HasDataSource t datasource m
   )
 
 type PrebuildAgnostic t route m =
@@ -87,11 +89,11 @@ type PrebuildAgnostic t route m =
   )
 
 data Frontend route = Frontend
-  { _frontend_head :: !(forall js t m. ObeliskWidget js t route m => RoutedT t route m ())
-  , _frontend_body :: !(forall js t m. ObeliskWidget js t route m => RoutedT t route m ())
+  { _frontend_head :: !(forall js t datasource m. ObeliskWidget js t route datasource m => RoutedT t route m ())
+  , _frontend_body :: !(forall js t datasource m. ObeliskWidget js t route datasource m => RoutedT t route m ())
   }
 
-baseTag :: forall route js t m. ObeliskWidget js t route m => RoutedT t route m ()
+baseTag :: forall route js t datasource m. ObeliskWidget js t route datasource m => RoutedT t route m ()
 baseTag = elAttr "base" ("href" =: "/") blank --TODO: Figure out the base URL from the routes
 
 removeHTMLConfigs :: JSM ()

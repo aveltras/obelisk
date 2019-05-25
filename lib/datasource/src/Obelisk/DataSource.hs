@@ -12,17 +12,27 @@
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE UndecidableInstances #-}
-module Obelisk.DataSource where
+module Obelisk.DataSource
+  ( DataSourceRes
+  , DataSourceT
+  , HasDataSource
+  , deriveArgDict
+  , deriveJSONGADT
+  , localDataSource
+  , runDataSourceT
+  , webSocketDataSource
+  ) where
 
 import Control.Monad.Reader
 import Control.Monad.Primitive
 import Control.Monad.Ref
 import qualified Data.Aeson as A
+import Data.Aeson.GADT.TH (deriveJSONGADT)
 import qualified Data.ByteString as BS
 import qualified Data.ByteString.Lazy as LBS
 import Data.Constraint.Extras
 import Data.Constraint.Forall
-import Data.Functor.Identity (Identity(..))
+import Data.Constraint.Extras.TH (deriveArgDict)
 import Data.Map.Strict (toList)
 import Data.Text (Text)
 import GHCJS.DOM.Types (MonadJSM)
@@ -36,7 +46,7 @@ newtype DataSourceRes res = DataSourceRes (Either String res)
 
 class Monad m => HasDataSource t (ds :: * -> *) m | m -> t ds where
   askData :: Event t (ds x) -> m (Event t (DataSourceRes x))
-  default askData :: (Monad m', MonadTrans f, HasDataSource t ds m', m ~ f m') => Event t (ds x) -> m (Event t (DataSourceRes x))
+  default askData :: (MonadTrans f, HasDataSource t ds m', m ~ f m') => Event t (ds x) -> m (Event t (DataSourceRes x))
   askData = lift . askData
 
 instance HasDataSource t ds m => HasDataSource t ds (BehaviorWriterT t w m)
@@ -89,7 +99,7 @@ instance PrimMonad m => PrimMonad (DataSourceT t ds m) where
 instance (Monad m, Reflex t) => HasDataSource t ds (DataSourceT t ds m) where
   askData = DataSourceT . requesting
 
-data DataSource t ds m a = DataSource { reqFn :: forall x. Event t (RequesterData ds) -> m (Event t (RequesterData (DataSourceRes))) }
+data DataSource t ds m a = DataSource { reqFn :: Event t (RequesterData ds) -> m (Event t (RequesterData (DataSourceRes))) }
 
 runDataSourceT :: (MonadFix m, Reflex t) => DataSource t ds m a -> DataSourceT t ds m a -> m a
 runDataSourceT dataSource child = mdo
@@ -98,8 +108,7 @@ runDataSourceT dataSource child = mdo
   return val
 
 localDataSource ::
-  ( MonadFix m
-  , PerformEvent t m
+  ( PerformEvent t m
   , MonadIO (Performable m) )
   => (forall x. (ds x) -> IO (DataSourceRes x))
   -> DataSource t ds m a

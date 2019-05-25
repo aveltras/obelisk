@@ -9,10 +9,17 @@ library
                  aeson,
                  aeson-gadt-th,
                  bytestring,
+                 constraints,
                  constraints-extras,
+                 containers,
+                 ghcjs-dom,
+                 mtl,
+                 obelisk-executable-config-frontend,
                  obelisk-route,
+                 primitive,
                  reflex,
                  reflex-dom-core,
+                 ref-tf,
                  transformers,
                  text
   exposed-modules: Obelisk.DataSource
