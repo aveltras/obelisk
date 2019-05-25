@@ -28,6 +28,7 @@ import Web.Cookie
 
 import Obelisk.ExecutableConfig.Frontend
 import Obelisk.Route.Frontend
+import Obelisk.DataSource
 
 class Monad m => HasCookies m where
   askCookies :: m Cookies
@@ -41,6 +42,7 @@ instance HasCookies m => HasCookies (PostBuildT t m)
 instance HasCookies m => HasCookies (QueryT t q m)
 instance HasCookies m => HasCookies (ReaderT r m)
 instance HasCookies m => HasCookies (RequesterT t request response m)
+instance HasCookies m => HasCookies (DataSourceT t datasource m)
 instance HasCookies m => HasCookies (RouteToUrlT t m)
 instance HasCookies m => HasCookies (SetRouteT t r m)
 instance HasCookies m => HasCookies (StaticDomBuilderT t m)

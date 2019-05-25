@@ -1,3 +1,4 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE ConstraintKinds #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE FlexibleContexts #-}
@@ -88,12 +89,12 @@ type PrebuildAgnostic t route m =
   , HasFrontendConfigs (Performable m)
   )
 
-data Frontend route = Frontend
-  { _frontend_head :: !(forall js t datasource m. ObeliskWidget js t route datasource m => RoutedT t route m ())
-  , _frontend_body :: !(forall js t datasource m. ObeliskWidget js t route datasource m => RoutedT t route m ())
+data Frontend route datasource = Frontend
+  { _frontend_head :: !(forall js t m. ObeliskWidget js t route datasource m => RoutedT t route m ())
+  , _frontend_body :: !(forall js t m. ObeliskWidget js t route datasource m => RoutedT t route m ())
   }
 
-baseTag :: forall route js t datasource m. ObeliskWidget js t route datasource m => RoutedT t route m ()
+baseTag :: forall route datasource js t m. ObeliskWidget js t route datasource m => RoutedT t route m ()
 baseTag = elAttr "base" ("href" =: "/") blank --TODO: Figure out the base URL from the routes
 
 removeHTMLConfigs :: JSM ()
@@ -109,24 +110,26 @@ removeHTMLConfigs = void $ runMaybeT $ do
       pure $ catMaybes lst
 
 runFrontend
-  :: forall backendRoute route
+  :: forall backendRoute route t datasource
   .  Encoder Identity Identity (R (Sum backendRoute (ObeliskRoute route))) PageName
-  -> Frontend (R route)
+  -> DataSource t datasource JSM
+  -> Frontend (R route) datasource
   -> JSM ()
-runFrontend validFullEncoder frontend = do
+runFrontend validFullEncoder datasource frontend = do
   configs <- liftIO getConfigs
 #ifdef ghcjs_HOST_OS
   removeHTMLConfigs
 #endif
-  runFrontendWithConfigs configs validFullEncoder frontend
+  runFrontendWithConfigs configs validFullEncoder datasource frontend
 
 runFrontendWithConfigs
-  :: forall backendRoute route
+  :: forall backendRoute route t m datasource
   .  Map Text Text
   -> Encoder Identity Identity (R (Sum backendRoute (ObeliskRoute route))) PageName
-  -> Frontend (R route)
+  -> DataSource t datasource JSM
+  -> Frontend (R route) datasource
   -> JSM ()
-runFrontendWithConfigs configs validFullEncoder frontend = do
+runFrontendWithConfigs configs validFullEncoder datasource frontend = do
   let ve = validFullEncoder . hoistParse errorLeft (prismEncoder (rPrism $ _InR . _ObeliskRoute_App))
       errorLeft = \case
         Left _ -> error "runFrontend: Unexpected non-app ObeliskRoute reached the frontend. This shouldn't happen."
@@ -148,19 +151,20 @@ runFrontendWithConfigs configs validFullEncoder frontend = do
 renderFrontendHtml
   :: ( t ~ DomTimeline
      , MonadIO m
-     , widget ~ RoutedT t r (SetRouteT t r (RouteToUrlT r (FrontendConfigsT (CookiesT (PostBuildT t (StaticDomBuilderT t (PerformEventT t DomHost)))))))
+     , widget ~ RoutedT t r (SetRouteT t r (RouteToUrlT r (FrontendConfigsT (CookiesT (DataSourceT t datasource (PostBuildT t (StaticDomBuilderT t (PerformEventT t DomHost))))))))
      )
   => Map Text Text
   -> Cookies
+  -> DataSource t datasource widget
   -> (r -> Text)
   -> r
-  -> Frontend r
+  -> Frontend r datasource
   -> widget ()
   -> widget ()
   -> m ByteString
-renderFrontendHtml configs cookies urlEnc route frontend headExtra bodyExtra = do
+renderFrontendHtml configs cookies datasource urlEnc route frontend headExtra bodyExtra = do
   --TODO: We should probably have a "NullEventWriterT" or a frozen reflex timeline
-  html <- fmap snd $ liftIO $ renderStatic $ fmap fst $ runCookiesT cookies $ runFrontendConfigsT configs $ flip runRouteToUrlT urlEnc $ runSetRouteT $ flip runRoutedT (pure route) $
+  html <- fmap snd $ liftIO $ renderStatic $ fmap fst $ runDataSourceT datasource $ runCookiesT cookies $ runFrontendConfigsT configs $ flip runRouteToUrlT urlEnc $ runSetRouteT $ flip runRoutedT (pure route) $
     el "html" $ do
       el "head" $ do
         baseTag

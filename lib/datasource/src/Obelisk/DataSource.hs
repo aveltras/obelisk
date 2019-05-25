@@ -14,6 +14,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 module Obelisk.DataSource
   ( DataSourceRes
+  , DataSource
   , DataSourceT
   , HasDataSource
   , deriveArgDict
@@ -35,6 +36,7 @@ import Data.Constraint.Forall
 import Data.Constraint.Extras.TH (deriveArgDict)
 import Data.Map.Strict (toList)
 import Data.Text (Text)
+import GHCJS.DOM.Document (Document)
 import GHCJS.DOM.Types (MonadJSM)
 import Reflex.Host.Class
 import Reflex.Dom.Core
@@ -44,7 +46,7 @@ import Obelisk.Route.Frontend
 
 newtype DataSourceRes res = DataSourceRes (Either String res)
 
-class Monad m => HasDataSource t (ds :: * -> *) m | m -> t ds where
+class Monad m => HasDataSource t (ds :: * -> *) m where
   askData :: Event t (ds x) -> m (Event t (DataSourceRes x))
   default askData :: (MonadTrans f, HasDataSource t ds m', m ~ f m') => Event t (ds x) -> m (Event t (DataSourceRes x))
   askData = lift . askData
@@ -56,12 +58,13 @@ instance HasDataSource t ds m => HasDataSource t ds (PostBuildT t m)
 instance HasDataSource t ds m => HasDataSource t ds (QueryT t q m)
 instance HasDataSource t ds m => HasDataSource t ds (ReaderT r m)
 instance HasDataSource t ds m => HasDataSource t ds (RequesterT t request response m)
-instance HasDataSource t ds m => HasDataSource t ds (RouteToUrlT t m)
+instance HasDataSource t ds m => HasDataSource t ds (RouteToUrlT r m)
 instance HasDataSource t ds m => HasDataSource t ds (SetRouteT t r m)
 instance HasDataSource t ds m => HasDataSource t ds (StaticDomBuilderT t m)
 instance HasDataSource t ds m => HasDataSource t ds (TriggerEventT t m)
 instance HasDataSource t ds m => HasDataSource t ds (RoutedT t r m)
 instance HasDataSource t ds m => HasDataSource t ds (FrontendConfigsT m)
+instance HasFrontendConfigs m => HasFrontendConfigs (DataSourceT t ds m)
 
 newtype DataSourceT t (ds :: * -> *) m a = DataSourceT { unDataSourceT :: RequesterT t ds DataSourceRes m a }
   deriving
@@ -84,6 +87,7 @@ newtype DataSourceT t (ds :: * -> *) m a = DataSourceT { unDataSourceT :: Reques
     , PostBuild t
     , Prerender js t
     , TriggerEvent t
+    , HasDocument
     )
 
 instance (Adjustable t m, MonadFix m, MonadHold t m) => Adjustable t (DataSourceT t ds m) where
@@ -99,9 +103,9 @@ instance PrimMonad m => PrimMonad (DataSourceT t ds m) where
 instance (Monad m, Reflex t) => HasDataSource t ds (DataSourceT t ds m) where
   askData = DataSourceT . requesting
 
-data DataSource t ds m a = DataSource { reqFn :: Event t (RequesterData ds) -> m (Event t (RequesterData (DataSourceRes))) }
+data DataSource t ds m = DataSource { reqFn :: Event t (RequesterData ds) -> m (Event t (RequesterData (DataSourceRes))) }
 
-runDataSourceT :: (MonadFix m, Reflex t) => DataSource t ds m a -> DataSourceT t ds m a -> m a
+runDataSourceT :: (MonadFix m, Reflex t) => DataSource t ds m -> DataSourceT t ds m a -> m a
 runDataSourceT dataSource child = mdo
   eResponse <- (reqFn dataSource) eRequest
   (val, eRequest) <- runRequesterT (unDataSourceT child) eResponse
@@ -111,11 +115,11 @@ localDataSource ::
   ( PerformEvent t m
   , MonadIO (Performable m) )
   => (forall x. (ds x) -> IO (DataSourceRes x))
-  -> DataSource t ds m a
+  -> DataSource t ds m
 localDataSource handler = DataSource $ \eRequest -> do
   performEvent $ liftIO . (traverseRequesterData handler) <$> eRequest
 
-webSocketDataSource :: forall t ds m a.
+webSocketDataSource :: forall t ds m.
   ( HasJSContext m
   , MonadFix m
   , MonadJSM (Performable m)
@@ -129,7 +133,7 @@ webSocketDataSource :: forall t ds m a.
   => Text -- WebSocket URL
   -> Event t (Word, Text) -- close event
   -> Bool -- reconnect on close
-  -> DataSource t ds m a
+  -> DataSource t ds m
 webSocketDataSource url eClose doReconnect =
   DataSource $ \eRequest -> mdo
     let eSend = (fmap . fmap) encodeReq (toList <$> eMapRawRequest) :: Event t [BS.ByteString]
@@ -156,3 +160,6 @@ webSocketDataSource url eClose doReconnect =
         case A.decodeStrict bs of
           Nothing         -> Nothing :: Maybe (Int, A.Value)
           Just (val, rst) -> Just (val, rst)
+
+instance (MonadJSM m, RawDocument (DomBuilderSpace (HydrationDomBuilderT s t m)) ~ Document) => HasDataSource t ds (HydrationDomBuilderT s t m) where
+  askData = undefined -- fmap (parseCookies . encodeUtf8) $ getCookie =<< askDocument
